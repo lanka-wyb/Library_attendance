@@ -30,3 +30,11 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
     checkout_time DATETIME NULL,
     FOREIGN KEY (registration_number) REFERENCES users(registration_number)
 );
+
+-- Admins table
+CREATE TABLE IF NOT EXISTS admins (
+    username VARCHAR(50) PRIMARY KEY,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
