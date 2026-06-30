@@ -1,0 +1,33 @@
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const section = searchParams.get('section');
+
+    if (section) {
+      // Validate section
+      const validSections = ['reading_l1', 'reading_l2', 'block_a', 'block_b'];
+      if (!validSections.includes(section)) {
+        return NextResponse.json({ error: 'Invalid section' }, { status: 400 });
+      }
+
+      // Fetch all slots in this section
+      const slots = await query(
+        'SELECT id, section, slot_number, status, occupied_by, occupied_at FROM slots WHERE section = ? ORDER BY slot_number ASC',
+        [section]
+      );
+      return NextResponse.json({ success: true, slots });
+    } else {
+      // Return summary counts for all sections
+      const summaries = await query(
+        'SELECT section, COUNT(*) as total, SUM(CASE WHEN status = "occupied" THEN 1 ELSE 0 END) as occupied FROM slots GROUP BY section'
+      );
+      return NextResponse.json({ success: true, summaries });
+    }
+  } catch (error: any) {
+    console.error('Slots API error:', error);
+    return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });
+  }
+}
