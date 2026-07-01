@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import pool, { query } from '@/lib/db';
 import { cookies } from 'next/headers';
 
 // Helper to check admin authentication
@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE: Remove a user
+// DELETE: Remove a user (cascade deletes logs/active seats)
 export async function DELETE(request: Request) {
   try {
     if (!await isAuthenticated()) {
@@ -115,22 +115,41 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Registration number is required' }, { status: 400 });
     }
 
-    // Attempt deletion
+    // Check if user exists
+    const users = await query('SELECT * FROM users WHERE registration_number = ?', [regNum]);
+    if (users.length === 0) {
+      return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
+    }
+
+    const conn = await pool.getConnection();
     try {
-      const result = await query('DELETE FROM users WHERE registration_number = ?', [regNum]);
-      if (result.affectedRows === 0) {
-        return NextResponse.json({ error: 'Student not found.' }, { status: 404 });
-      }
-      return NextResponse.json({ success: true, message: 'Student removed successfully' });
+      await conn.beginTransaction();
+
+      // 1. Release active slot
+      await conn.execute(
+        'UPDATE slots SET occupied_by = NULL, status = "available", occupied_at = NULL WHERE occupied_by = ?',
+        [regNum]
+      );
+
+      // 2. Delete attendance logs
+      await conn.execute(
+        'DELETE FROM attendance_logs WHERE registration_number = ?',
+        [regNum]
+      );
+
+      // 3. Delete user
+      await conn.execute(
+        'DELETE FROM users WHERE registration_number = ?',
+        [regNum]
+      );
+
+      await conn.commit();
+      return NextResponse.json({ success: true, message: 'Student and their attendance history removed successfully.' });
     } catch (dbError: any) {
-      // Catch foreign key constraint failure (e.g. references in logs)
-      if (dbError.errno === 1451 || dbError.code === 'ER_ROW_IS_REFERENCED_2') {
-        return NextResponse.json(
-          { error: 'Cannot delete this student because they have active or past library attendance records. You must clear their logs first.' },
-          { status: 409 }
-        );
-      }
+      await conn.rollback();
       throw dbError;
+    } finally {
+      conn.release();
     }
   } catch (error: any) {
     console.error('DELETE Users API error:', error);
