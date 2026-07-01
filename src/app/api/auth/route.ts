@@ -18,10 +18,10 @@ export async function POST(request: Request) {
     let user;
 
     if (users.length === 0) {
-      // Create a default user
-      const defaultName = `Student ${regNum}`;
-      await query('INSERT INTO users (registration_number, name) VALUES (?, ?)', [regNum, defaultName]);
-      user = { registration_number: regNum, name: defaultName };
+      return NextResponse.json(
+        { error: 'Unauthorized Access: Registration number not found in the database.' },
+        { status: 401 }
+      );
     } else {
       user = users[0];
     }

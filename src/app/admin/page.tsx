@@ -36,7 +36,7 @@ const SECTION_NAMES: { [key: string]: string } = {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"visualizer" | "reports">("visualizer");
+  const [activeTab, setActiveTab] = useState<"visualizer" | "reports" | "users">("visualizer");
 
   // Visualizer states
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -54,6 +54,22 @@ export default function AdminDashboard() {
   const [reportLogs, setReportLogs] = useState<ReportLog[]>([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+
+  // User Management states
+  interface User {
+    registration_number: string;
+    name: string;
+    created_at: string;
+  }
+  const [users, setUsers] = useState<User[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userLoading, setUserLoading] = useState(false);
+  const [userError, setUserError] = useState<string | null>(null);
+  const [userSuccess, setUserSuccess] = useState<string | null>(null);
+  const [newRegNum, setNewRegNum] = useState("");
+  const [newName, setNewName] = useState("");
+  const [editingRegNum, setEditingRegNum] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   // 1. Setup default dates on mount (avoid SSR hydration mismatch)
   useEffect(() => {
@@ -291,6 +307,100 @@ export default function AdminDashboard() {
     }
   }, [searchQuery]);
 
+  // User Management Handlers
+  const fetchUsers = async (searchStr?: string) => {
+    setUserLoading(true);
+    setUserError(null);
+    try {
+      const queryStr = searchStr !== undefined ? searchStr : userSearchQuery;
+      const res = await fetch(`/api/admin/users?search=${encodeURIComponent(queryStr)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to fetch users");
+      setUsers(data.users || []);
+    } catch (err: any) {
+      setUserError(err.message || "Failed to synchronize user list.");
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRegNum.trim() || !newName.trim()) {
+      setUserError("Registration number and Name are required.");
+      return;
+    }
+    setUserLoading(true);
+    setUserError(null);
+    setUserSuccess(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationNumber: newRegNum, name: newName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to add user.");
+      setUserSuccess(data.message);
+      setNewRegNum("");
+      setNewName("");
+      fetchUsers("");
+    } catch (err: any) {
+      setUserError(err.message);
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  const handleEditUser = async (registrationNumber: string) => {
+    if (!editingName.trim()) {
+      setUserError("Name cannot be empty.");
+      return;
+    }
+    setUserLoading(true);
+    setUserError(null);
+    setUserSuccess(null);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationNumber, name: editingName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update user.");
+      setUserSuccess(data.message);
+      setEditingRegNum(null);
+      setEditingName("");
+      fetchUsers();
+    } catch (err: any) {
+      setUserError(err.message);
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (registrationNumber: string) => {
+    if (!confirm(`Are you sure you want to delete student ${registrationNumber}?`)) {
+      return;
+    }
+    setUserLoading(true);
+    setUserError(null);
+    setUserSuccess(null);
+    try {
+      const res = await fetch(`/api/admin/users?registrationNumber=${encodeURIComponent(registrationNumber)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to delete user.");
+      setUserSuccess(data.message);
+      fetchUsers();
+    } catch (err: any) {
+      setUserError(err.message);
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
   const { total, occupied, locked, available } = getStats();
 
   return (
@@ -328,6 +438,17 @@ export default function AdminDashboard() {
           }}
         >
           Usage Reports
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveTab('users');
+            setUserError(null);
+            setUserSuccess(null);
+            fetchUsers("");
+          }}
+        >
+          Manage Students
         </button>
       </div>
 
@@ -620,6 +741,162 @@ export default function AdminDashboard() {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "users" && (
+        <div className="report-section" style={{ animation: "fadeIn 0.3s" }}>
+          <h1>Student Registration</h1>
+          <p className="subtitle">Manage authorized student accounts. Unregistered students will be denied check-in.</p>
+
+          {/* Add Student Form */}
+          <div style={{ background: "rgba(255, 255, 255, 0.03)", padding: "1.5rem", borderRadius: "16px", border: "1px solid rgba(255, 255, 255, 0.05)", marginBottom: "2rem" }}>
+            <h3 style={{ marginBottom: "1rem", color: "#a78bfa" }}>Add New Student</h3>
+            <form onSubmit={handleAddUser} style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div style={{ flex: "1 1 200px" }}>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.85rem", color: "var(--text-muted)" }}>Registration Number</label>
+                <input
+                  type="text"
+                  className="custom-input"
+                  placeholder="e.g. REG001"
+                  style={{ padding: "0.75rem 1.25rem", fontSize: "1rem", textAlign: "left", letterSpacing: "normal" }}
+                  value={newRegNum}
+                  onChange={(e) => setNewRegNum(e.target.value)}
+                  disabled={userLoading}
+                />
+              </div>
+              <div style={{ flex: "2 1 300px" }}>
+                <label style={{ display: "block", marginBottom: "0.5rem", fontSize: "0.85rem", color: "var(--text-muted)" }}>Student Full Name</label>
+                <input
+                  type="text"
+                  className="custom-input"
+                  placeholder="e.g. John Doe"
+                  style={{ padding: "0.75rem 1.25rem", fontSize: "1rem", textAlign: "left", letterSpacing: "normal" }}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  disabled={userLoading}
+                />
+              </div>
+              <button type="submit" className="btn-primary" style={{ width: "auto", padding: "0.75rem 1.5rem", height: "46px" }} disabled={userLoading}>
+                {userLoading ? "Adding..." : "Add Student"}
+              </button>
+            </form>
+          </div>
+
+          {/* Search Box */}
+          <div style={{ marginBottom: "1.5rem" }}>
+            <input
+              type="text"
+              className="custom-input"
+              placeholder="🔍 SEARCH REGISTERED STUDENTS..."
+              style={{ padding: "0.85rem 1.5rem", fontSize: "1rem", textAlign: "left", letterSpacing: "normal" }}
+              value={userSearchQuery}
+              onChange={(e) => {
+                setUserSearchQuery(e.target.value);
+                fetchUsers(e.target.value);
+              }}
+            />
+          </div>
+
+          {userError && <div className="toast toast-error" style={{ marginBottom: "1.5rem" }}>{userError}</div>}
+          {userSuccess && <div className="toast toast-success" style={{ marginBottom: "1.5rem" }}>{userSuccess}</div>}
+
+          {/* Table displaying users */}
+          {userLoading && users.length === 0 ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "4rem 0", color: "var(--text-muted)", fontSize: "1.1rem" }}>
+              Loading registered students...
+            </div>
+          ) : users.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--text-muted)", background: "rgba(0,0,0,0.15)", borderRadius: "20px" }}>
+              No registered students found.
+            </div>
+          ) : (
+            <div className="report-table-wrapper">
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Registration Number</th>
+                    <th>Student Name</th>
+                    <th>Created At</th>
+                    <th style={{ textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => {
+                    const isEditing = editingRegNum === u.registration_number;
+                    return (
+                      <tr key={u.registration_number}>
+                        <td style={{ fontWeight: "700", color: "#a78bfa" }}>{u.registration_number}</td>
+                        <td>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              className="custom-input"
+                              style={{ padding: "0.4rem 0.8rem", fontSize: "0.95rem", textAlign: "left", letterSpacing: "normal", background: "rgba(255, 255, 255, 0.05)" }}
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                            />
+                          ) : (
+                            u.name
+                          )}
+                        </td>
+                        <td>{new Date(u.created_at).toLocaleDateString()} {new Date(u.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center" }}>
+                            {isEditing ? (
+                              <>
+                                <button
+                                  onClick={() => handleEditUser(u.registration_number)}
+                                  className="btn-primary"
+                                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                                  disabled={userLoading}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingRegNum(null);
+                                    setEditingName("");
+                                  }}
+                                  className="btn-secondary"
+                                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                                  disabled={userLoading}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    setEditingRegNum(u.registration_number);
+                                    setEditingName(u.name);
+                                  }}
+                                  className="btn-secondary"
+                                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                                  disabled={userLoading}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.registration_number)}
+                                  className="btn-danger"
+                                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto", boxShadow: "none" }}
+                                  disabled={userLoading}
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
