@@ -1,3 +1,6 @@
+const { loadEnvConfig } = require('@next/env');
+loadEnvConfig(process.cwd());
+
 const mysql = require('mysql2/promise');
 
 async function main() {
