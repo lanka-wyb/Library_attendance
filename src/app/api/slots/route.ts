@@ -8,7 +8,7 @@ export async function GET(request: Request) {
 
     if (section) {
       // Validate section
-      const validSections = ['reading_l1', 'reading_l2', 'block_a', 'block_b'];
+      const validSections = ['reading_l1', 'reading_l2','reading_l3','reading_l4', 'block_a', 'block_b','block_c', 'block_d'];
       if (!validSections.includes(section)) {
         return NextResponse.json({ error: 'Invalid section' }, { status: 400 });
       }

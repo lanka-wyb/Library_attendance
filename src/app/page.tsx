@@ -10,10 +10,14 @@ interface SectionSummary {
 }
 
 const SECTION_NAMES: { [key: string]: string } = {
-  reading_l1: "Reading Section (Level 1)",
-  reading_l2: "Reading Section (Level 2)",
+  reading_l1: "Reading Section (Level 0)",
+  reading_l2: "Reading Section (Level 1)",
+  reading_l3: "Reading Section (Level 2)",
+  reading_l4: "Reading Section (Basement)",
   block_a: "Block A",
   block_b: "Block B",
+  block_c: "Block C",
+  block_d: "Block D",
 };
 
 export default function Home() {
