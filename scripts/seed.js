@@ -44,38 +44,40 @@ async function main() {
     console.log('Seeding slots...');
     const slots = [];
 
-    // Reading Level 1: 100 slots, numbered 1 to 100
-    for (let i = 1; i <= 100; i++) {
+    // Reading Level 1: 8 slots, numbered 1 to 8
+    for (let i = 1; i <= 8; i++) {
       slots.push(['reading_l1', i]);
     }
-    // Reading Level 2: 100 slots, numbered 101 to 200
-    for (let i = 101; i <= 200; i++) {
+    // Reading Level 2: 30 slots, numbered 1 to 30
+    for (let i = 1; i <= 30; i++) {
       slots.push(['reading_l2', i]);
     }
-    // Reading Level 3: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Reading Level 3: 22 slots, numbered 1 to 22
+    for (let i = 1; i <= 22; i++) {
       slots.push(['reading_l3', i]);
     }
-    // Reading Level 4 (Basement): 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Reading Level 4 (Basement): 100 slots, numbered 1 to 100
+    for (let i = 1; i <= 100; i++) {
       slots.push(['reading_l4', i]);
     }
-    // Block A: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Block A: 18 slots, numbered 1 to 18
+    for (let i = 1; i <= 18; i++) {
       slots.push(['block_a', i]);
     }
-    // Block B: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Block B: 27 slots, numbered 1 to 27
+    for (let i = 1; i <= 27; i++) {
       slots.push(['block_b', i]);
     }
-    // Block C: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Block C: 16 slots, numbered 1 to 16
+    for (let i = 1; i <= 16; i++) {
       slots.push(['block_c', i]);
     }
-    // Block D: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // Block D: 16 slots, numbered 1 to 16
+    for (let i = 1; i <= 16; i++) {
       slots.push(['block_d', i]);
     }
+    // Auditorium: 1 slot, numbered 1
+    slots.push(['auditorium', 1]);
 
     // MKDL Reading: 50 slots, numbered 1 to 50
     for (let i = 1; i <= 50; i++) {

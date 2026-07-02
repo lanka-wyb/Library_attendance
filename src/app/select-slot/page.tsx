@@ -13,7 +13,7 @@ interface Slot {
 }
 
 const LIBRARY_SECTIONS: { [library: string]: string[] } = {
-  MAIN: ['reading_l1', 'reading_l2', 'reading_l3', 'reading_l4', 'block_a', 'block_b', 'block_c', 'block_d'],
+  MAIN: ['reading_l1', 'reading_l2', 'reading_l3', 'reading_l4', 'block_a', 'block_b', 'block_c', 'block_d', 'auditorium'],
   MKDL: ['mkdl_reading', 'mkdl_reference', 'mkdl_block_a', 'mkdl_block_b'],
   MEDL: ['medl_reading', 'medl_reference', 'medl_block_a', 'medl_block_b'],
 };
@@ -27,6 +27,7 @@ const SECTION_NAMES: { [key: string]: string } = {
   block_b: "Block B",
   block_c: "Block C",
   block_d: "Block D",
+  auditorium: "Auditorium",
   mkdl_reading: "Reading Section (MKDL)",
   mkdl_reference: "Reference Section (MKDL)",
   mkdl_block_a: "Block A (MKDL)",
