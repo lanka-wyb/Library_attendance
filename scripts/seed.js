@@ -52,6 +52,14 @@ async function main() {
     for (let i = 101; i <= 200; i++) {
       slots.push(['reading_l2', i]);
     }
+    // Reading Level 3: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['reading_l3', i]);
+    }
+    // Reading Level 4 (Basement): 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['reading_l4', i]);
+    }
     // Block A: 50 slots, numbered 1 to 50
     for (let i = 1; i <= 50; i++) {
       slots.push(['block_a', i]);
@@ -59,6 +67,14 @@ async function main() {
     // Block B: 50 slots, numbered 1 to 50
     for (let i = 1; i <= 50; i++) {
       slots.push(['block_b', i]);
+    }
+    // Block C: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['block_c', i]);
+    }
+    // Block D: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['block_d', i]);
     }
 
     console.log(`Inserting ${slots.length} slots...`);
