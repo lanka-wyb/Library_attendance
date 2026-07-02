@@ -43,7 +43,24 @@ function SeatSelectorContent() {
     time: string;
   } | null>(null);
 
-  // 1. Verify user exists and check active reservation on mount
+  // 1. Check if terminal is unlocked on mount
+  useEffect(() => {
+    const checkTerminal = async () => {
+      try {
+        const res = await fetch("/api/terminal/status");
+        const data = await res.json();
+        if (!data.unlocked) {
+          router.push("/");
+        }
+      } catch (err) {
+        console.error("Terminal status check error:", err);
+        router.push("/");
+      }
+    };
+    checkTerminal();
+  }, []);
+
+  // 2. Verify user exists and check active reservation on mount
   useEffect(() => {
     if (!regNum) {
       router.push("/");

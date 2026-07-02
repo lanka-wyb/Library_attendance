@@ -35,12 +35,26 @@ export default function Home() {
   const [activeReservation, setActiveReservation] = useState<any>(null);
   const [studentName, setStudentName] = useState("");
 
-  // Load section summaries on mount
+  // Kiosk/Terminal states
+  const [isTerminalUnlocked, setIsTerminalUnlocked] = useState<boolean | null>(null);
+  const [operatorUsername, setOperatorUsername] = useState("");
+  const [operatorPassword, setOperatorPassword] = useState("");
+  const [operatorLoading, setOperatorLoading] = useState(false);
+  const [operatorError, setOperatorError] = useState<string | null>(null);
+
+  // Check terminal lock status on mount
   useEffect(() => {
+    checkTerminalStatus();
+  }, []);
+
+  // Load section summaries on mount (only when terminal is unlocked)
+  useEffect(() => {
+    if (isTerminalUnlocked !== true) return;
+    
     fetchSummaries();
     const interval = setInterval(fetchSummaries, 8000); // refresh every 8s
     return () => clearInterval(interval);
-  }, []);
+  }, [isTerminalUnlocked]);
 
   const fetchSummaries = async () => {
     try {
@@ -51,6 +65,69 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Failed to fetch section summaries:", err);
+    }
+  };
+
+  const checkTerminalStatus = async () => {
+    try {
+      const res = await fetch("/api/terminal/status");
+      const data = await res.json();
+      if (data.success) {
+        setIsTerminalUnlocked(data.unlocked);
+      } else {
+        setIsTerminalUnlocked(false);
+      }
+    } catch (err) {
+      console.error("Failed to check terminal status:", err);
+      setIsTerminalUnlocked(false);
+    }
+  };
+
+  const handleUnlockTerminal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!operatorUsername.trim() || !operatorPassword.trim()) {
+      setOperatorError("Please enter both username and password.");
+      return;
+    }
+
+    setOperatorLoading(true);
+    setOperatorError(null);
+
+    try {
+      const res = await fetch("/api/terminal/unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: operatorUsername, password: operatorPassword }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Login failed.");
+      }
+
+      setOperatorUsername("");
+      setOperatorPassword("");
+      setOperatorError(null);
+      setIsTerminalUnlocked(true);
+    } catch (err: any) {
+      setOperatorError(err.message);
+    } finally {
+      setOperatorLoading(false);
+    }
+  };
+
+  const handleLockTerminal = async () => {
+    if (!confirm("Are you sure you want to lock this terminal? Students will not be able to make reservations until it is unlocked again.")) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/terminal/lock", { method: "POST" });
+      if (res.ok) {
+        setIsTerminalUnlocked(false);
+        resetFlow();
+      }
+    } catch (err) {
+      console.error("Failed to lock terminal:", err);
     }
   };
 
@@ -167,8 +244,98 @@ export default function Home() {
     return { total: sum.total, occupied: parseInt(sum.occupied as any || 0, 10) };
   };
 
+  if (isTerminalUnlocked === null) {
+    return (
+      <div className="glass-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 2rem" }}>
+        <div style={{ width: "40px", height: "40px", border: "4px solid rgba(255,255,255,0.1)", borderTop: "4px solid #a78bfa", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: "1.5rem" }}></div>
+        <h2>Checking Security...</h2>
+        <p style={{ color: "var(--text-muted)", marginTop: "0.5rem" }}>Please wait while the terminal authenticates.</p>
+      </div>
+    );
+  }
+
+  if (isTerminalUnlocked === false) {
+    return (
+      <div className="glass-card" style={{ maxWidth: "480px", margin: "4rem auto", width: "100%" }}>
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🔒</div>
+          <h1>Terminal Locked</h1>
+          <p className="subtitle" style={{ fontSize: "0.95rem" }}>
+            This terminal is currently locked. An operator or administrator must sign in to enable the seat reservation portal.
+          </p>
+        </div>
+
+        <form onSubmit={handleUnlockTerminal}>
+          <div style={{ marginBottom: "1.25rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              Operator Username
+            </label>
+            <input
+              type="text"
+              className="custom-input"
+              style={{ textAlign: "left", letterSpacing: "normal", padding: "1rem 1.25rem", fontSize: "1.1rem" }}
+              placeholder="e.g. operator1"
+              value={operatorUsername}
+              onChange={(e) => setOperatorUsername(e.target.value)}
+              disabled={operatorLoading}
+              autoFocus
+            />
+          </div>
+
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label style={{ display: "block", marginBottom: "0.5rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              Password
+            </label>
+            <input
+              type="password"
+              className="custom-input"
+              style={{ textAlign: "left", letterSpacing: "normal", padding: "1rem 1.25rem", fontSize: "1.1rem" }}
+              placeholder="••••••••"
+              value={operatorPassword}
+              onChange={(e) => setOperatorPassword(e.target.value)}
+              disabled={operatorLoading}
+            />
+          </div>
+
+          {operatorError && <div className="toast toast-error" style={{ marginBottom: "1.5rem" }}>{operatorError}</div>}
+
+          <button type="submit" className="btn-primary" disabled={operatorLoading}>
+            {operatorLoading ? "Unlocking Terminal..." : "Unlock Kiosk"}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
-    <div className="glass-card">
+    <div className="glass-card" style={{ position: "relative" }}>
+      {/* Kiosk lock control in top-right */}
+      <button 
+        onClick={handleLockTerminal}
+        style={{
+          position: "absolute",
+          top: "1.5rem",
+          right: "1.5rem",
+          background: "rgba(239, 68, 68, 0.15)",
+          color: "#f87171",
+          border: "1px solid rgba(239, 68, 68, 0.2)",
+          padding: "0.4rem 0.8rem",
+          borderRadius: "8px",
+          cursor: "pointer",
+          fontSize: "0.85rem",
+          fontWeight: "600",
+          transition: "all 0.2s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "rgba(239, 68, 68, 0.25)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "rgba(239, 68, 68, 0.15)";
+        }}
+      >
+        🔒 Lock Terminal
+      </button>
+
       <h1>Library Hub</h1>
       <p className="subtitle">Real-time attendance & study seat reservation portal.</p>
 
