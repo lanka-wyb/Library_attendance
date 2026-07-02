@@ -12,6 +12,12 @@ interface Slot {
   occupied_at: string | null;
 }
 
+const LIBRARY_SECTIONS: { [library: string]: string[] } = {
+  MAIN: ['reading_l1', 'reading_l2', 'reading_l3', 'reading_l4', 'block_a', 'block_b', 'block_c', 'block_d'],
+  MKDL: ['mkdl_reading', 'mkdl_reference', 'mkdl_block_a', 'mkdl_block_b'],
+  MEDL: ['medl_reading', 'medl_reference', 'medl_block_a', 'medl_block_b'],
+};
+
 const SECTION_NAMES: { [key: string]: string } = {
   reading_l1: "Reading Section (Level 0)",
   reading_l2: "Reading Section (Level 1)",
@@ -21,6 +27,14 @@ const SECTION_NAMES: { [key: string]: string } = {
   block_b: "Block B",
   block_c: "Block C",
   block_d: "Block D",
+  mkdl_reading: "Reading Section (MKDL)",
+  mkdl_reference: "Reference Section (MKDL)",
+  mkdl_block_a: "Block A (MKDL)",
+  mkdl_block_b: "Block B (MKDL)",
+  medl_reading: "Reading Section (MEDL)",
+  medl_reference: "Reference Section (MEDL)",
+  medl_block_a: "Block A (MEDL)",
+  medl_block_b: "Block B (MEDL)",
 };
 
 function SeatSelectorContent() {
@@ -29,11 +43,18 @@ function SeatSelectorContent() {
   const regNum = searchParams.get("reg") || "";
 
   const [studentName, setStudentName] = useState("");
+  const [selectedLibrary, setSelectedLibrary] = useState<"MAIN" | "MKDL" | "MEDL">("MAIN");
   const [selectedSection, setSelectedSection] = useState("reading_l1");
   const [slots, setSlots] = useState<Slot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
+
+  // Auto reset active section when changing libraries
+  useEffect(() => {
+    setSelectedSection(LIBRARY_SECTIONS[selectedLibrary][0]);
+    setSelectedSlot(null);
+  }, [selectedLibrary]);
   const [error, setError] = useState<string | null>(null);
   
   // Confirmation state
@@ -209,9 +230,39 @@ function SeatSelectorContent() {
         Select a section and click on an available seat to book.
       </p>
 
+      {/* Library Selector Tabs */}
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+        {(["MAIN", "MKDL", "MEDL"] as const).map(lib => (
+          <button
+            key={lib}
+            type="button"
+            onClick={() => setSelectedLibrary(lib)}
+            style={{
+              padding: "0.5rem 1.25rem",
+              borderRadius: "20px",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              background: selectedLibrary === lib ? "linear-gradient(90deg, #a78bfa, #c084fc)" : "rgba(255, 255, 255, 0.03)",
+              color: selectedLibrary === lib ? "#fff" : "var(--text-muted)",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+              boxShadow: selectedLibrary === lib ? "0 4px 12px rgba(167, 139, 250, 0.2)" : "none"
+            }}
+            onMouseEnter={(e) => {
+              if (selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+            }}
+            onMouseLeave={(e) => {
+              if (selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)";
+            }}
+          >
+            {lib} Library
+          </button>
+        ))}
+      </div>
+
       {/* Section Tabs */}
       <div className="sections-grid">
-        {Object.keys(SECTION_NAMES).map(key => {
+        {LIBRARY_SECTIONS[selectedLibrary].map(key => {
           const isActive = selectedSection === key;
           return (
             <div

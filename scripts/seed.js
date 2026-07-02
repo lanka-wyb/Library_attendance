@@ -77,6 +77,40 @@ async function main() {
       slots.push(['block_d', i]);
     }
 
+    // MKDL Reading: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['mkdl_reading', i]);
+    }
+    // MKDL Reference: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['mkdl_reference', i]);
+    }
+    // MKDL Block A: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['mkdl_block_a', i]);
+    }
+    // MKDL Block B: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['mkdl_block_b', i]);
+    }
+
+    // MEDL Reading: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['medl_reading', i]);
+    }
+    // MEDL Reference: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['medl_reference', i]);
+    }
+    // MEDL Block A: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['medl_block_a', i]);
+    }
+    // MEDL Block B: 50 slots, numbered 1 to 50
+    for (let i = 1; i <= 50; i++) {
+      slots.push(['medl_block_b', i]);
+    }
+
     console.log(`Inserting ${slots.length} slots...`);
     const batchSize = 100;
     for (let i = 0; i < slots.length; i += batchSize) {

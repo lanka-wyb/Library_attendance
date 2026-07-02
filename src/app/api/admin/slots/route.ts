@@ -8,7 +8,11 @@ export async function GET(request: Request) {
 
     let slots;
     if (section) {
-      const validSections = ['reading_l1', 'reading_l2','reading_l3','reading_l4', 'block_a', 'block_b','block_c', 'block_d'];
+      const validSections = [
+        'reading_l1', 'reading_l2', 'reading_l3', 'reading_l4', 'block_a', 'block_b', 'block_c', 'block_d',
+        'mkdl_reading', 'mkdl_reference', 'mkdl_block_a', 'mkdl_block_b',
+        'medl_reading', 'medl_reference', 'medl_block_a', 'medl_block_b'
+      ];
       if (!validSections.includes(section)) {
         return NextResponse.json({ error: 'Invalid section' }, { status: 400 });
       }
