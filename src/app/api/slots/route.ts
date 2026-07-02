@@ -24,7 +24,11 @@ export async function GET(request: Request) {
       const summaries = await query(
         'SELECT section, COUNT(*) as total, SUM(CASE WHEN status = "occupied" THEN 1 ELSE 0 END) as occupied FROM slots GROUP BY section'
       );
-      return NextResponse.json({ success: true, summaries });
+      // Fetch status of all slots for graphical preview
+      const slots = await query(
+        'SELECT section, slot_number, status FROM slots ORDER BY section, slot_number ASC'
+      );
+      return NextResponse.json({ success: true, summaries, slots });
     }
   } catch (error: any) {
     console.error('Slots API error:', error);

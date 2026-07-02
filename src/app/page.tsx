@@ -29,6 +29,7 @@ export default function Home() {
   
   // Section availability summary state
   const [summaries, setSummaries] = useState<SectionSummary[]>([]);
+  const [allSlots, setAllSlots] = useState<any[]>([]);
   
   // Checkout flow states
   const [viewMode, setViewMode] = useState<"enter_reg" | "confirm_checkout" | "checkout_success">("enter_reg");
@@ -60,8 +61,9 @@ export default function Home() {
     try {
       const res = await fetch("/api/slots");
       const data = await res.json();
-      if (data.success && data.summaries) {
-        setSummaries(data.summaries);
+      if (data.success) {
+        if (data.summaries) setSummaries(data.summaries);
+        if (data.slots) setAllSlots(data.slots);
       }
     } catch (err) {
       console.error("Failed to fetch section summaries:", err);
@@ -349,14 +351,64 @@ export default function Home() {
               const isFull = available === 0;
 
               return (
-                <div key={key} className="section-card">
-                  <h3>{SECTION_NAMES[key]}</h3>
-                  <div style={{ fontSize: "1.5rem", fontWeight: "800", margin: "0.2rem 0" }}>
-                    {available} <span style={{ fontSize: "0.9rem", color: "var(--text-muted)", fontWeight: "500" }}>/ {total} Free</span>
+                <div key={key} className="section-card" style={{ display: "flex", flexDirection: "column", padding: "1.25rem" }}>
+                  <h3 style={{ fontSize: "1.1rem" }}>{SECTION_NAMES[key]}</h3>
+                  
+                  {/* Progress bar indicating fill rate */}
+                  <div style={{ width: "100%", background: "rgba(255,255,255,0.06)", height: "6px", borderRadius: "3px", overflow: "hidden", margin: "0.6rem 0" }}>
+                    <div style={{ width: `${(occupied / total) * 100}%`, background: isFull ? "#ef4444" : "linear-gradient(90deg, #a78bfa, #c084fc)", height: "100%", borderRadius: "3px", transition: "width 0.3s ease" }}></div>
                   </div>
-                  <span className={`availability-badge ${isFull ? 'badge-occupied' : 'badge-available'}`}>
-                    {isFull ? "FULL" : "SEATS AVAILABLE"}
-                  </span>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "0.25rem" }}>
+                    <div style={{ fontSize: "1.25rem", fontWeight: "800" }}>
+                      {available} <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: "500" }}>/ {total} Free</span>
+                    </div>
+                    <span className={`availability-badge ${isFull ? 'badge-occupied' : 'badge-available'}`} style={{ padding: "0.2rem 0.5rem", fontSize: "0.7rem", lineHeight: "1" }}>
+                      {isFull ? "FULL" : "FREE"}
+                    </span>
+                  </div>
+
+                  {/* Micro seat grid showing exact layout */}
+                  {allSlots.length > 0 && (() => {
+                    const sectionSlots = allSlots.filter(s => s.section === key);
+                    if (sectionSlots.length === 0) return null;
+                    return (
+                      <div style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(10, 1fr)",
+                        gap: "2.5px",
+                        marginTop: "0.75rem",
+                        background: "rgba(0,0,0,0.15)",
+                        padding: "6px",
+                        borderRadius: "6px",
+                        width: "100%",
+                        boxSizing: "border-box"
+                      }}>
+                        {sectionSlots.map((slot) => {
+                          let dotColor = "#10b981"; // available (green)
+                          if (slot.status === "occupied") {
+                            dotColor = "#ef4444"; // occupied (red)
+                          } else if (slot.status === "locked") {
+                            dotColor = "#8b5cf6"; // locked (purple)
+                          }
+                          return (
+                            <div
+                              key={slot.slot_number}
+                              style={{
+                                aspectRatio: "1/1",
+                                width: "100%",
+                                borderRadius: "1.5px",
+                                backgroundColor: dotColor,
+                                opacity: slot.status === "available" ? 0.7 : 1,
+                                transition: "all 0.3s ease"
+                              }}
+                              title={`Seat #${slot.slot_number} (${slot.status})`}
+                            />
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
