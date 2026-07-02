@@ -27,8 +27,8 @@ export async function POST(request: Request) {
     response.cookies.set('admin_token', 'admin-logged-in', {
       path: '/',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: false, // Must be false as the server runs over HTTP
+      sameSite: 'lax',
       maxAge: 60 * 60 * 8, // 8 hours
     });
 

@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     response.cookies.set('terminal_token', 'unlocked', {
       path: '/',
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: false, // Must be false as the server runs over HTTP
+      sameSite: 'lax',
       maxAge: 60 * 60 * 12, // 12 hours
     });
 
