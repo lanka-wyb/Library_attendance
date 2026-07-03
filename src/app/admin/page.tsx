@@ -55,6 +55,8 @@ export default function AdminDashboard() {
 
   // Visualizer states
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [activeVisitorLogs, setActiveVisitorLogs] = useState<any[]>([]);
+  const [expandedMetricList, setExpandedMetricList] = useState<"none" | "occupied" | "visit">("none");
   const [selectedLibrary, setSelectedLibrary] = useState<"MAIN" | "MKDL" | "MEDL">("MAIN");
   const [selectedSection, setSelectedSection] = useState("reading_l1");
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,6 +121,7 @@ export default function AdminDashboard() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch slots");
       setSlots(data.slots || []);
+      setActiveVisitorLogs(data.activeVisitorLogs || []);
     } catch (err: any) {
       console.error(err);
       setError("Failed to synchronize seat configurations.");
@@ -214,6 +217,31 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleForceReleaseByReg = async (regNum: string) => {
+    if (!confirm(`Are you sure you want to force-checkout student ${regNum}?`)) {
+      return;
+    }
+    setActionLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch("/api/admin/override", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationNumber: regNum }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to release student session.");
+
+      setSuccess(data.message);
+      fetchSlots();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Generate Report function
   const handleGenerateReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,8 +286,8 @@ export default function AdminDashboard() {
     const rows = reportLogs.map(log => [
       log.registration_number,
       log.student_name,
-      SECTION_NAMES[log.section] || log.section,
-      `Seat #${log.slot_number}`,
+      log.section ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)",
+      log.slot_number ? `Seat #${log.slot_number}` : "-",
       new Date(log.checkin_time).toLocaleString(),
       log.checkout_time ? new Date(log.checkout_time).toLocaleString() : "Active (In Progress)",
       calculateDuration(log.checkin_time, log.checkout_time)
@@ -489,15 +517,142 @@ export default function AdminDashboard() {
               <div className="admin-stat-val" style={{ color: "var(--seat-avail-color)" }}>{available}</div>
               <div className="admin-stat-label">Available</div>
             </div>
-            <div className="admin-stat-box">
+            <div 
+              className={`admin-stat-box ${expandedMetricList === 'occupied' ? 'active-metric-btn' : ''}`}
+              onClick={() => setExpandedMetricList(expandedMetricList === 'occupied' ? 'none' : 'occupied')}
+              style={{ cursor: 'pointer', border: expandedMetricList === 'occupied' ? '2px solid var(--seat-occ-color)' : '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}
+            >
               <div className="admin-stat-val" style={{ color: "var(--seat-occ-color)" }}>{occupied}</div>
-              <div className="admin-stat-label">Occupied</div>
+              <div className="admin-stat-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                Occupied ▾
+              </div>
+            </div>
+            <div 
+              className={`admin-stat-box ${expandedMetricList === 'visit' ? 'active-metric-btn' : ''}`}
+              onClick={() => setExpandedMetricList(expandedMetricList === 'visit' ? 'none' : 'visit')}
+              style={{ cursor: 'pointer', border: expandedMetricList === 'visit' ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}
+            >
+              <div className="admin-stat-val" style={{ color: "#38bdf8" }}>{activeVisitorLogs.length}</div>
+              <div className="admin-stat-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                Visit ▾
+              </div>
             </div>
             <div className="admin-stat-box">
               <div className="admin-stat-val" style={{ color: "var(--seat-locked-color)" }}>{locked}</div>
               <div className="admin-stat-label">Locked</div>
             </div>
           </div>
+
+          {/* Collapsible Active Lists (Version 1.5) */}
+          {expandedMetricList !== "none" && (
+            <div style={{
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "15px",
+              padding: "1.5rem",
+              margin: "1.5rem 0",
+              animation: "fadeIn 0.3s"
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                <h2 style={{ fontSize: "1.3rem", margin: 0, color: expandedMetricList === "occupied" ? "var(--seat-occ-color)" : "#38bdf8" }}>
+                  {expandedMetricList === "occupied" ? "Active Seat Occupants" : "Active Visitors"}
+                </h2>
+                <button 
+                  onClick={() => setExpandedMetricList("none")}
+                  style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1.2rem" }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {expandedMetricList === "occupied" ? (
+                (() => {
+                  const occupiedSlots = slots.filter(s => s.status === "occupied");
+                  if (occupiedSlots.length === 0) {
+                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active seat bookings.</div>;
+                  }
+                  return (
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="report-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Reg ID</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Student Name</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Location</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Check-in Time</th>
+                            <th style={{ textAlign: "center", padding: "8px" }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {occupiedSlots.map(slot => (
+                            <tr key={slot.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                              <td style={{ padding: "10px 8px", fontWeight: "bold", color: "#a78bfa" }}>{slot.occupied_by}</td>
+                              <td style={{ padding: "10px 8px" }}>{slot.occupant_name || "-"}</td>
+                              <td style={{ padding: "10px 8px" }}>{SECTION_NAMES[slot.section] || slot.section} - Seat #{slot.slot_number}</td>
+                              <td style={{ padding: "10px 8px" }}>
+                                {slot.occupied_at ? new Date(slot.occupied_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                                <button
+                                  className="btn-danger"
+                                  onClick={() => handleForceReleaseByReg(slot.occupied_by!)}
+                                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                                >
+                                  Force Checkout
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              ) : (
+                (() => {
+                  if (activeVisitorLogs.length === 0) {
+                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active visitor sessions.</div>;
+                  }
+                  return (
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="report-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Reg ID</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Student Name</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Location</th>
+                            <th style={{ textAlign: "left", padding: "8px" }}>Check-in Time</th>
+                            <th style={{ textAlign: "center", padding: "8px" }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeVisitorLogs.map(log => (
+                            <tr key={log.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                              <td style={{ padding: "10px 8px", fontWeight: "bold", color: "#38bdf8" }}>{log.registration_number}</td>
+                              <td style={{ padding: "10px 8px" }}>{log.occupant_name || "-"}</td>
+                              <td style={{ padding: "10px 8px" }}>Visitor (No Seat)</td>
+                              <td style={{ padding: "10px 8px" }}>
+                                {log.occupied_at ? new Date(log.occupied_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                              </td>
+                              <td style={{ padding: "10px 8px", textAlign: "center" }}>
+                                <button
+                                  className="btn-danger"
+                                  onClick={() => handleForceReleaseByReg(log.registration_number)}
+                                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", width: "auto" }}
+                                >
+                                  Force Checkout
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+          )}
 
           {/* Student Finder Search */}
           <div style={{ margin: "1.5rem 0" }}>
@@ -778,8 +933,8 @@ export default function AdminDashboard() {
                     <tr key={log.id}>
                       <td style={{ fontWeight: "700", color: "#a78bfa" }}>{log.registration_number}</td>
                       <td>{log.student_name}</td>
-                      <td>{SECTION_NAMES[log.section] || log.section}</td>
-                      <td>Seat #{log.slot_number}</td>
+                      <td>{log.section ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)"}</td>
+                      <td>{log.slot_number ? `Seat #${log.slot_number}` : "-"}</td>
                       <td>{new Date(log.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(log.checkin_time).toLocaleDateString()})</td>
                       <td>
                         {log.checkout_time ? (

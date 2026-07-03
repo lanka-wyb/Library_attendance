@@ -18,10 +18,29 @@ export async function POST(request: Request) {
     );
 
     if (activeReservations.length === 0) {
-      return NextResponse.json(
-        { error: 'No active seat reservation found for this registration number.' },
-        { status: 404 }
+      const activeLogs = await query(
+        'SELECT * FROM attendance_logs WHERE registration_number = ? AND checkout_time IS NULL',
+        [regNum]
       );
+      if (activeLogs.length === 0) {
+        return NextResponse.json(
+          { error: 'No active session found for this registration number.' },
+          { status: 404 }
+        );
+      }
+
+      await query(
+        `UPDATE attendance_logs 
+         SET checkout_time = NOW() 
+         WHERE registration_number = ? AND checkout_time IS NULL`,
+        [regNum]
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Successfully checked out from visit!',
+        details: { isVisit: true }
+      });
     }
 
     const reservation = activeReservations[0];

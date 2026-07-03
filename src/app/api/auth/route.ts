@@ -26,13 +26,31 @@ export async function POST(request: Request) {
       user = users[0];
     }
 
-    // 2. Check if the user has an active seat reservation
-    const activeReservations = await query(
-      'SELECT * FROM slots WHERE occupied_by = ? AND status = "occupied"',
+    // 2. Check if the user has an active attendance session
+    const activeLogs = await query(
+      'SELECT * FROM attendance_logs WHERE registration_number = ? AND checkout_time IS NULL ORDER BY checkin_time DESC LIMIT 1',
       [regNum]
     );
 
-    const activeReservation = activeReservations.length > 0 ? activeReservations[0] : null;
+    let activeReservation = null;
+    if (activeLogs.length > 0) {
+      const log = activeLogs[0];
+      if (log.section === null || log.slot_number === null) {
+        activeReservation = {
+          isVisit: true,
+          section: null,
+          slot_number: null,
+          occupied_at: log.checkin_time,
+        };
+      } else {
+        activeReservation = {
+          isVisit: false,
+          section: log.section,
+          slot_number: log.slot_number,
+          occupied_at: log.checkin_time,
+        };
+      }
+    }
 
     return NextResponse.json({
       success: true,

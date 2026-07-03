@@ -34,7 +34,15 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, slots });
+    const activeVisitorLogs = await query(
+      `SELECT l.id, l.registration_number, l.checkin_time as occupied_at, u.name as occupant_name 
+       FROM attendance_logs l 
+       JOIN users u ON l.registration_number = u.registration_number 
+       WHERE l.section IS NULL AND l.slot_number IS NULL AND l.checkout_time IS NULL
+       ORDER BY l.checkin_time DESC`
+    );
+
+    return NextResponse.json({ success: true, slots, activeVisitorLogs });
   } catch (error: any) {
     console.error('Admin slots API error:', error);
     return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });

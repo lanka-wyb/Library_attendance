@@ -175,7 +175,11 @@ export default function Home() {
       }
 
       if (data.activeReservation) {
-        setError(`You already have an active seat reservation in ${SECTION_NAMES[data.activeReservation.section]} - Seat #${data.activeReservation.slot_number}. Please check-out first.`);
+        if (data.activeReservation.isVisit) {
+          setError("You already have an active visitor session. Please check-out first.");
+        } else {
+          setError(`You already have an active seat reservation in ${SECTION_NAMES[data.activeReservation.section]} - Seat #${data.activeReservation.slot_number}. Please check-out first.`);
+        }
         setLoading(false);
       } else {
         // Redirect to seat selector with registration number
@@ -183,6 +187,56 @@ export default function Home() {
       }
     } catch (err: any) {
       setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const handleVisitCheckIn = async () => {
+    if (!registrationNumber.trim()) {
+      setError("Please enter your registration number.");
+      return;
+    }
+    
+    setError(null);
+    setSuccess(null);
+    setLoading(true);
+
+    try {
+      const authRes = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationNumber }),
+      });
+      const authData = await authRes.json();
+
+      if (!authRes.ok) {
+        throw new Error(authData.error || "Verification failed.");
+      }
+
+      if (authData.activeReservation) {
+        if (authData.activeReservation.isVisit) {
+          throw new Error("You already have an active visitor session. Please check-out first.");
+        } else {
+          throw new Error(`You already have an active seat reservation in ${SECTION_NAMES[authData.activeReservation.section]} - Seat #${authData.activeReservation.slot_number}. Please check-out first.`);
+        }
+      }
+
+      const res = await fetch("/api/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ registrationNumber }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Check-in failed.");
+      }
+
+      setSuccess("Successfully checked in as a visitor!");
+      setViewMode("checkout_success");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
@@ -210,7 +264,7 @@ export default function Home() {
       }
 
       if (!data.activeReservation) {
-        throw new Error("No active seat reservation found for this registration number.");
+        throw new Error("No active session found for this registration number.");
       }
 
       setStudentName(data.user.name);
@@ -477,7 +531,7 @@ export default function Home() {
 
             {error && <div className="toast toast-error">{error}</div>}
 
-            <div className="action-buttons-group">
+            <div className="action-buttons-group" style={{ display: "flex", gap: "1rem", flexDirection: "column" }}>
               <button
                 type="submit"
                 className="btn-primary"
@@ -485,14 +539,27 @@ export default function Home() {
               >
                 {loading ? "Verifying..." : "Book Seat & Check-in"}
               </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={handleCheckOutLookup}
-                disabled={loading}
-              >
-                Checkout & Leave Seat
-              </button>
+              
+              <div style={{ display: "flex", gap: "1rem", width: "100%" }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ flex: 1 }}
+                  onClick={handleVisitCheckIn}
+                  disabled={loading}
+                >
+                  {loading ? "Checking in..." : "Only Visit (No Seat)"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ flex: 1, border: "1px solid rgba(239, 68, 68, 0.2)", color: "#f87171" }}
+                  onClick={handleCheckOutLookup}
+                  disabled={loading}
+                >
+                  Checkout & Leave
+                </button>
+              </div>
             </div>
           </form>
         </>
@@ -501,7 +568,7 @@ export default function Home() {
       {viewMode === "confirm_checkout" && activeReservation && (
         <div style={{ animation: "fadeIn 0.3s" }}>
           <div className="active-res-details">
-            <h2>Active Reservation Detected</h2>
+            <h2>Active Session Detected</h2>
             <div className="ticket-row" style={{ marginTop: "1rem" }}>
               <span className="ticket-label">Student Name:</span>
               <span className="ticket-value">{studentName}</span>
@@ -510,14 +577,23 @@ export default function Home() {
               <span className="ticket-label">Reg Number:</span>
               <span className="ticket-value">{registrationNumber.toUpperCase()}</span>
             </div>
-            <div className="ticket-row">
-              <span className="ticket-label">Location:</span>
-              <span className="ticket-value">{SECTION_NAMES[activeReservation.section]}</span>
-            </div>
-            <div className="ticket-row">
-              <span className="ticket-label">Seat Number:</span>
-              <span className="ticket-value">Seat #{activeReservation.slot_number}</span>
-            </div>
+            {activeReservation.isVisit ? (
+              <div className="ticket-row">
+                <span className="ticket-label">Location:</span>
+                <span className="ticket-value">Visitor (No Seat)</span>
+              </div>
+            ) : (
+              <>
+                <div className="ticket-row">
+                  <span className="ticket-label">Location:</span>
+                  <span className="ticket-value">{SECTION_NAMES[activeReservation.section]}</span>
+                </div>
+                <div className="ticket-row">
+                  <span className="ticket-label">Seat Number:</span>
+                  <span className="ticket-value">Seat #{activeReservation.slot_number}</span>
+                </div>
+              </>
+            )}
             <div className="ticket-row">
               <span className="ticket-label">Check-in Time:</span>
               <span className="ticket-value">
@@ -534,7 +610,7 @@ export default function Home() {
               className="btn-danger"
               disabled={loading}
             >
-              {loading ? "Checking out..." : "Confirm Checkout & Free Seat"}
+              {loading ? "Checking out..." : activeReservation.isVisit ? "Confirm Checkout" : "Confirm Checkout & Free Seat"}
             </button>
             <button
               onClick={resetFlow}
@@ -551,9 +627,13 @@ export default function Home() {
         <div>
           <div className="ticket-container">
             <div style={{ fontSize: "3rem", marginBottom: "0.5rem" }}>✓</div>
-            <h2 style={{ color: "#34d399", fontWeight: "800", marginBottom: "1rem" }}>Checkout Complete</h2>
+            <h2 style={{ color: "#34d399", fontWeight: "800", marginBottom: "1rem" }}>
+              {success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor") ? "Check-in Complete" : "Checkout Complete"}
+            </h2>
             <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem", textAlign: "center" }}>
-              Your seat has been released and is now available for other students.
+              {success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor") || success?.includes("visitor")
+                ? "You have successfully checked in as a visitor. Enjoy your visit!"
+                : "Your session has been closed and any seat held has been released."}
             </p>
             {success && <div className="toast toast-success" style={{ width: "100%", maxWidth: "320px" }}>{success}</div>}
           </div>

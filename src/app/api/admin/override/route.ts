@@ -3,7 +3,41 @@ import { query } from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
-    const { section, slotNumber } = await request.json();
+    const { section, slotNumber, registrationNumber } = await request.json();
+
+    if (registrationNumber) {
+      const regNum = registrationNumber.trim().toUpperCase();
+
+      // Find if they hold a physical slot
+      const occupiedSlots = await query(
+        'SELECT * FROM slots WHERE occupied_by = ? AND status = "occupied"',
+        [regNum]
+      );
+
+      if (occupiedSlots.length > 0) {
+        const slot = occupiedSlots[0];
+        // Free the physical slot
+        await query(
+          `UPDATE slots 
+           SET status = 'available', occupied_by = NULL, occupied_at = NULL 
+           WHERE id = ?`,
+          [slot.id]
+        );
+      }
+
+      // Close the active attendance log
+      await query(
+        `UPDATE attendance_logs 
+         SET checkout_time = NOW() 
+         WHERE registration_number = ? AND checkout_time IS NULL`,
+        [regNum]
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully released student ${regNum}.`,
+      });
+    }
 
     if (!section || slotNumber === undefined) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
