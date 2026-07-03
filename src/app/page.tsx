@@ -224,7 +224,7 @@ export default function Home() {
       const res = await fetch("/api/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationNumber }),
+        body: JSON.stringify({ registrationNumber, section: selectedLibrary, slotNumber: null }),
       });
       const data = await res.json();
 

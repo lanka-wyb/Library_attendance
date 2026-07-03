@@ -276,6 +276,7 @@ export default function AdminDashboard() {
     const headers = [
       "Registration Number",
       "Student Name",
+      "Premises",
       "Section",
       "Seat Number",
       "Check-in Time",
@@ -286,7 +287,8 @@ export default function AdminDashboard() {
     const rows = reportLogs.map(log => [
       log.registration_number,
       log.student_name,
-      log.section ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)",
+      getLibraryFromSection(log.section),
+      log.slot_number ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)",
       log.slot_number ? `Seat #${log.slot_number}` : "-",
       new Date(log.checkin_time).toLocaleString(),
       log.checkout_time ? new Date(log.checkout_time).toLocaleString() : "Active (In Progress)",
@@ -326,17 +328,36 @@ export default function AdminDashboard() {
     return `${hours}h ${mins}m`;
   };
 
+  const getLibraryFromSection = (section: string | null) => {
+    if (!section) return "MAIN";
+    if (section === "MAIN" || section === "MKDL" || section === "MEDL") {
+      return section;
+    }
+    if (LIBRARY_SECTIONS["MKDL"].includes(section)) return "MKDL";
+    if (LIBRARY_SECTIONS["MEDL"].includes(section)) return "MEDL";
+    return "MAIN";
+  };
+
   // Visualizer Helpers
   const getFilteredSlots = () => {
     return slots.filter(s => s.section === selectedSection);
   };
 
   const getStats = () => {
-    const total = slots.length;
-    const occupied = slots.filter(s => s.status === "occupied").length;
-    const locked = slots.filter(s => s.status === "locked").length;
+    const librarySections = LIBRARY_SECTIONS[selectedLibrary];
+    const librarySlots = slots.filter(s => librarySections.includes(s.section));
+    const total = librarySlots.length;
+    const occupied = librarySlots.filter(s => s.status === "occupied").length;
+    const locked = librarySlots.filter(s => s.status === "locked").length;
     const available = total - occupied - locked;
     return { total, occupied, locked, available };
+  };
+
+  const getLibraryVisitors = () => {
+    return activeVisitorLogs.filter(log => {
+      const visitSection = log.section || "MAIN";
+      return visitSection === selectedLibrary;
+    });
   };
 
   const getSearchMatch = () => {
@@ -532,7 +553,7 @@ export default function AdminDashboard() {
               onClick={() => setExpandedMetricList(expandedMetricList === 'visit' ? 'none' : 'visit')}
               style={{ cursor: 'pointer', border: expandedMetricList === 'visit' ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)', transition: 'all 0.2s' }}
             >
-              <div className="admin-stat-val" style={{ color: "#38bdf8" }}>{activeVisitorLogs.length}</div>
+              <div className="admin-stat-val" style={{ color: "#38bdf8" }}>{getLibraryVisitors().length}</div>
               <div className="admin-stat-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
                 Visit ▾
               </div>
@@ -567,9 +588,9 @@ export default function AdminDashboard() {
 
               {expandedMetricList === "occupied" ? (
                 (() => {
-                  const occupiedSlots = slots.filter(s => s.status === "occupied");
+                  const occupiedSlots = slots.filter(s => s.status === "occupied" && LIBRARY_SECTIONS[selectedLibrary].includes(s.section));
                   if (occupiedSlots.length === 0) {
-                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active seat bookings.</div>;
+                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active seat bookings in this library.</div>;
                   }
                   return (
                     <div style={{ overflowX: "auto" }}>
@@ -610,8 +631,9 @@ export default function AdminDashboard() {
                 })()
               ) : (
                 (() => {
-                  if (activeVisitorLogs.length === 0) {
-                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active visitor sessions.</div>;
+                  const libraryVisitors = getLibraryVisitors();
+                  if (libraryVisitors.length === 0) {
+                    return <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "1rem 0" }}>No active visitor sessions in this library.</div>;
                   }
                   return (
                     <div style={{ overflowX: "auto" }}>
@@ -626,7 +648,7 @@ export default function AdminDashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {activeVisitorLogs.map(log => (
+                          {libraryVisitors.map(log => (
                             <tr key={log.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                               <td style={{ padding: "10px 8px", fontWeight: "bold", color: "#38bdf8" }}>{log.registration_number}</td>
                               <td style={{ padding: "10px 8px" }}>{log.occupant_name || "-"}</td>
@@ -921,6 +943,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th>Reg ID</th>
                     <th>Student Name</th>
+                    <th>Premises</th>
                     <th>Location</th>
                     <th>Seat #</th>
                     <th>Check-in</th>
@@ -933,7 +956,8 @@ export default function AdminDashboard() {
                     <tr key={log.id}>
                       <td style={{ fontWeight: "700", color: "#a78bfa" }}>{log.registration_number}</td>
                       <td>{log.student_name}</td>
-                      <td>{log.section ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)"}</td>
+                      <td style={{ fontWeight: "600", color: "#34d399" }}>{getLibraryFromSection(log.section)}</td>
+                      <td>{log.slot_number ? (SECTION_NAMES[log.section] || log.section) : "Visitor (No Seat)"}</td>
                       <td>{log.slot_number ? `Seat #${log.slot_number}` : "-"}</td>
                       <td>{new Date(log.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ({new Date(log.checkin_time).toLocaleDateString()})</td>
                       <td>

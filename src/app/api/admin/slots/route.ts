@@ -35,10 +35,10 @@ export async function GET(request: Request) {
     }
 
     const activeVisitorLogs = await query(
-      `SELECT l.id, l.registration_number, l.checkin_time as occupied_at, u.name as occupant_name 
+      `SELECT l.id, l.registration_number, l.section, l.checkin_time as occupied_at, u.name as occupant_name 
        FROM attendance_logs l 
        JOIN users u ON l.registration_number = u.registration_number 
-       WHERE l.section IS NULL AND l.slot_number IS NULL AND l.checkout_time IS NULL
+       WHERE (l.section IS NULL OR l.section IN ('MAIN', 'MKDL', 'MEDL')) AND l.slot_number IS NULL AND l.checkout_time IS NULL
        ORDER BY l.checkin_time DESC`
     );
 
