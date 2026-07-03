@@ -1,5 +1,12 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getAssignedLibrary } from '@/lib/library-assignment';
+
+const LIBRARY_SECTIONS: { [library: string]: string[] } = {
+  MAIN: ['reading_l1', 'reading_l2', 'reading_l3', 'reading_l4', 'block_a', 'block_b', 'block_c', 'block_d', 'auditorium'],
+  MKDL: ['mkdl_reading', 'mkdl_reference', 'mkdl_block_a', 'mkdl_block_b'],
+  MEDL: ['medl_reading', 'medl_reference', 'medl_block_a', 'medl_block_b'],
+};
 
 export async function POST(request: Request) {
   try {
@@ -41,10 +48,12 @@ export async function POST(request: Request) {
 
     if (isVisit) {
       // 3. Log visitor check-in in attendance_logs
+      // (Using section parameter if provided to track visitor branch, e.g. MAIN, MKDL, MEDL)
+      const visitorSection = (section && ['MAIN', 'MKDL', 'MEDL'].includes(section)) ? section : null;
       await query(
         `INSERT INTO attendance_logs (registration_number, section, slot_number, checkin_time) 
-         VALUES (?, NULL, NULL, NOW())`,
-        [regNum]
+         VALUES (?, ?, NULL, NOW())`,
+        [regNum, visitorSection]
       );
 
       return NextResponse.json({
@@ -53,6 +62,20 @@ export async function POST(request: Request) {
       });
     } else {
       // It is a seat reservation
+      const assignedLib = getAssignedLibrary(regNum);
+      if (assignedLib !== null) {
+        const targetLib = Object.keys(LIBRARY_SECTIONS).find(lib => 
+          LIBRARY_SECTIONS[lib].includes(section)
+        );
+
+        if (!targetLib || targetLib !== assignedLib) {
+          return NextResponse.json(
+            { error: `You are officially assigned to the ${assignedLib} Library and can only book seats there.` },
+            { status: 400 }
+          );
+        }
+      }
+
       const slotNum = parseInt(slotNumber, 10);
 
       // 4. Attempt to book the slot (ensuring it is currently available)

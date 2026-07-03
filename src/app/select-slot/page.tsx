@@ -44,6 +44,7 @@ function SeatSelectorContent() {
   const regNum = searchParams.get("reg") || "";
 
   const [studentName, setStudentName] = useState("");
+  const [assignedLibrary, setAssignedLibrary] = useState<"MAIN" | "MKDL" | "MEDL" | null>(null);
   const [selectedLibrary, setSelectedLibrary] = useState<"MAIN" | "MKDL" | "MEDL">("MAIN");
   const [selectedSection, setSelectedSection] = useState("reading_l1");
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -112,6 +113,10 @@ function SeatSelectorContent() {
       }
       
       setStudentName(data.user.name);
+      if (data.assignedLibrary) {
+        setAssignedLibrary(data.assignedLibrary);
+        setSelectedLibrary(data.assignedLibrary);
+      }
       
       if (data.activeReservation) {
         // Already checked in, redirect back
@@ -232,33 +237,49 @@ function SeatSelectorContent() {
       </p>
 
       {/* Library Selector Tabs */}
-      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-        {(["MAIN", "MKDL", "MEDL"] as const).map(lib => (
-          <button
-            key={lib}
-            type="button"
-            onClick={() => setSelectedLibrary(lib)}
-            style={{
-              padding: "0.5rem 1.25rem",
-              borderRadius: "20px",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              background: selectedLibrary === lib ? "linear-gradient(90deg, #a78bfa, #c084fc)" : "rgba(255, 255, 255, 0.03)",
-              color: selectedLibrary === lib ? "#fff" : "var(--text-muted)",
-              fontWeight: "600",
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-              boxShadow: selectedLibrary === lib ? "0 4px 12px rgba(167, 139, 250, 0.2)" : "none"
-            }}
-            onMouseEnter={(e) => {
-              if (selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
-            }}
-            onMouseLeave={(e) => {
-              if (selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)";
-            }}
-          >
-            {lib} Library
-          </button>
-        ))}
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap", alignItems: "center" }}>
+        {(["MAIN", "MKDL", "MEDL"] as const).map(lib => {
+          const isAssigned = assignedLibrary === null || assignedLibrary === lib;
+          return (
+            <button
+              key={lib}
+              type="button"
+              disabled={!isAssigned}
+              onClick={() => setSelectedLibrary(lib)}
+              style={{
+                padding: "0.5rem 1.25rem",
+                borderRadius: "20px",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                background: selectedLibrary === lib ? "linear-gradient(90deg, #a78bfa, #c084fc)" : "rgba(255, 255, 255, 0.03)",
+                color: selectedLibrary === lib ? "#fff" : "var(--text-muted)",
+                fontWeight: "600",
+                cursor: isAssigned ? "pointer" : "not-allowed",
+                opacity: isAssigned ? 1 : 0.4,
+                transition: "all 0.2s ease",
+                boxShadow: selectedLibrary === lib ? "0 4px 12px rgba(167, 139, 250, 0.2)" : "none"
+              }}
+              onMouseEnter={(e) => {
+                if (isAssigned && selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+              }}
+              onMouseLeave={(e) => {
+                if (isAssigned && selectedLibrary !== lib) e.currentTarget.style.background = "rgba(255, 255, 255, 0.03)";
+              }}
+            >
+              {lib} Library
+            </button>
+          );
+        })}
+        {assignedLibrary ? (
+          <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
+            (You are officially assigned to the <strong style={{ color: "#a78bfa" }}>{assignedLibrary} Library</strong> based on your registration number)
+          </span>
+        ) : (
+          assignedLibrary === null && (
+            <span style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
+              (You have unrestricted access to reserve seats at any library branch)
+            </span>
+          )
+        )}
       </div>
 
       {/* Section Tabs */}

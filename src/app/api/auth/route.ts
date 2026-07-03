@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { getAssignedLibrary, getFacultyName } from '@/lib/library-assignment';
 
 export async function POST(request: Request) {
   try {
@@ -56,6 +57,8 @@ export async function POST(request: Request) {
       success: true,
       user,
       activeReservation,
+      assignedLibrary: getAssignedLibrary(regNum),
+      facultyName: getFacultyName(regNum),
     });
   } catch (error: any) {
     console.error('Auth API error:', error);

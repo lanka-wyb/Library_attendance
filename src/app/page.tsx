@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getAssignedLibrary } from "@/lib/library-assignment";
 
 interface SectionSummary {
   section: string;
@@ -155,6 +156,12 @@ export default function Home() {
     e.preventDefault();
     if (!registrationNumber.trim()) {
       setError("Please enter your registration number.");
+      return;
+    }
+
+    const assignedLib = getAssignedLibrary(registrationNumber);
+    if (assignedLib !== null && assignedLib !== selectedLibrary) {
+      setError(`You are officially assigned to the ${assignedLib} Library for seat bookings. You cannot book seats at the ${selectedLibrary} Library. However, you can still check in as a visitor here by clicking "Only Visit (No Seat)".`);
       return;
     }
     
