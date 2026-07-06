@@ -56,8 +56,8 @@ async function main() {
     for (let i = 1; i <= 22; i++) {
       slots.push(['reading_l3', i]);
     }
-    // Reading Level 4 (Basement): 100 slots, numbered 1 to 100
-    for (let i = 1; i <= 100; i++) {
+    // Reading Level 4 (Basement): 65 slots, numbered 1 to 65
+    for (let i = 1; i <= 65; i++) {
       slots.push(['reading_l4', i]);
     }
     // Block A: 18 slots, numbered 1 to 18
