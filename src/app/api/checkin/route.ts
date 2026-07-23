@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getAssignedLibrary } from '@/lib/library-assignment';
 
@@ -8,9 +8,10 @@ const LIBRARY_SECTIONS: { [library: string]: string[] } = {
   MEDL: ['medl_reading', 'medl_reference', 'medl_block_a', 'medl_block_b'],
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { registrationNumber, section, slotNumber } = await request.json();
+    const operator = request.cookies.get('terminal_operator')?.value || null;
 
     if (!registrationNumber) {
       return NextResponse.json({ error: 'Missing registration number' }, { status: 400 });
@@ -51,9 +52,9 @@ export async function POST(request: Request) {
       // (Using section parameter if provided to track visitor branch, e.g. MAIN, MKDL, MEDL)
       const visitorSection = (section && ['MAIN', 'MKDL', 'MEDL'].includes(section)) ? section : null;
       await query(
-        `INSERT INTO attendance_logs (registration_number, section, slot_number, checkin_time) 
-         VALUES (?, ?, NULL, NOW())`,
-        [regNum, visitorSection]
+        `INSERT INTO attendance_logs (registration_number, section, slot_number, checkin_time, operator_username) 
+         VALUES (?, ?, NULL, NOW(), ?)`,
+        [regNum, visitorSection, operator]
       );
 
       return NextResponse.json({
@@ -95,9 +96,9 @@ export async function POST(request: Request) {
 
       // 5. Log the check-in in attendance_logs
       await query(
-        `INSERT INTO attendance_logs (registration_number, section, slot_number, checkin_time) 
-         VALUES (?, ?, ?, NOW())`,
-        [regNum, section, slotNum]
+        `INSERT INTO attendance_logs (registration_number, section, slot_number, checkin_time, operator_username) 
+         VALUES (?, ?, ?, NOW(), ?)`,
+        [regNum, section, slotNum, operator]
       );
 
       return NextResponse.json({

@@ -49,6 +49,15 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 12, // 12 hours
     });
 
+    // Set terminal operator cookie
+    response.cookies.set('terminal_operator', trimmedUser, {
+      path: '/',
+      httpOnly: true,
+      secure: false,
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 12,
+    });
+
     return response;
   } catch (error: any) {
     console.error('Terminal unlock API error:', error);

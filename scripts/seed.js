@@ -79,8 +79,8 @@ async function main() {
     // Auditorium: 1 slot, numbered 1
     slots.push(['auditorium', 1]);
 
-    // MKDL Reading: 50 slots, numbered 1 to 50
-    for (let i = 1; i <= 50; i++) {
+    // MKDL Reading: 150 slots, numbered 1 to 150
+    for (let i = 1; i <= 150; i++) {
       slots.push(['mkdl_reading', i]);
     }
     // MKDL Reference: 50 slots, numbered 1 to 50

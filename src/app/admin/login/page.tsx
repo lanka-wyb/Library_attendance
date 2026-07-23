@@ -32,6 +32,7 @@ export default function AdminLogin() {
         throw new Error(data.error || "Authentication failed.");
       }
 
+      localStorage.setItem("user_role", data.role || "admin");
       router.push("/admin");
     } catch (err: any) {
       setError(err.message);

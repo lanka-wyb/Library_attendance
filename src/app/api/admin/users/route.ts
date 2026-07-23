@@ -9,6 +9,12 @@ async function isAuthenticated() {
   return adminToken && adminToken.value === 'admin-logged-in';
 }
 
+async function getRole() {
+  const cookieStore = await cookies();
+  const roleCookie = cookieStore.get('admin_role');
+  return roleCookie ? roleCookie.value : null;
+}
+
 // GET: Retrieve all users or search users
 export async function GET(request: Request) {
   try {
@@ -104,7 +110,7 @@ export async function PUT(request: Request) {
 // DELETE: Remove a user (cascade deletes logs/active seats)
 export async function DELETE(request: Request) {
   try {
-    if (!await isAuthenticated()) {
+    if (!await isAuthenticated() || await getRole() !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized access' }, { status: 401 });
     }
 

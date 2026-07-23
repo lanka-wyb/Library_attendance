@@ -6,6 +6,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const operator = searchParams.get('operator');
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -18,17 +19,38 @@ export async function GET(request: Request) {
     const startTimestamp = `${startDate} 00:00:00`;
     const endTimestamp = `${endDate} 23:59:59`;
 
-    // Query logs joined with student names
-    const logs = await query(
-      `SELECT l.id, l.registration_number, l.section, l.slot_number, l.checkin_time, l.checkout_time, u.name as student_name 
-       FROM attendance_logs l 
-       JOIN users u ON l.registration_number = u.registration_number 
-       WHERE l.checkin_time >= ? AND l.checkin_time <= ? 
-       ORDER BY l.checkin_time DESC`,
-      [startTimestamp, endTimestamp]
-    );
+    let queryStr = `
+      SELECT l.id, l.registration_number, l.section, l.slot_number, l.checkin_time, l.checkout_time, l.operator_username, u.name as student_name 
+      FROM attendance_logs l 
+      JOIN users u ON l.registration_number = u.registration_number 
+      WHERE l.checkin_time >= ? AND l.checkin_time <= ?
+    `;
+    const queryParams = [startTimestamp, endTimestamp];
 
-    return NextResponse.json({ success: true, logs });
+    if (operator && operator !== 'all') {
+      if (operator === 'none') {
+        queryStr += ` AND l.operator_username IS NULL`;
+      } else {
+        queryStr += ` AND l.operator_username = ?`;
+        queryParams.push(operator);
+      }
+    }
+
+    queryStr += ` ORDER BY l.checkin_time DESC`;
+
+    const logs = await query(queryStr, queryParams);
+
+    // Query distinct operators present in database logs
+    const distinctOps = await query(
+      `SELECT DISTINCT operator_username FROM attendance_logs WHERE operator_username IS NOT NULL`
+    );
+    const operatorsList = distinctOps.map((row: any) => row.operator_username);
+
+    return NextResponse.json({ 
+      success: true, 
+      logs,
+      operators: operatorsList
+    });
   } catch (error: any) {
     console.error('Report API error:', error);
     return NextResponse.json({ error: error.message || 'Server error' }, { status: 500 });

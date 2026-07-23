@@ -21,6 +21,7 @@ interface ReportLog {
   checkin_time: string;
   checkout_time: string | null;
   student_name: string;
+  operator_username: string | null;
 }
 
 const LIBRARY_SECTIONS: { [library: string]: string[] } = {
@@ -34,7 +35,7 @@ const SECTION_NAMES: { [key: string]: string } = {
   reading_l2: "Reading Section (Level 1)",
   reading_l3: "Reading Section (Level 2)",
   reading_l4: "Reading Section (Basement)",
-  block_a: "Block A",
+  block_a: "Studio A (Learning Commons)",
   block_b: "Block B",
   block_c: "Block C",
   block_d: "Block D",
@@ -52,6 +53,7 @@ const SECTION_NAMES: { [key: string]: string } = {
 export default function AdminDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"visualizer" | "reports" | "users">("visualizer");
+  const [userRole, setUserRole] = useState<"admin" | "operator">("admin");
 
   // Visualizer states
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -78,6 +80,8 @@ export default function AdminDashboard() {
   const [reportLogs, setReportLogs] = useState<ReportLog[]>([]);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [selectedOperator, setSelectedOperator] = useState<string>("all");
+  const [availableOperators, setAvailableOperators] = useState<string[]>([]);
 
   // User Management states
   interface User {
@@ -95,7 +99,7 @@ export default function AdminDashboard() {
   const [editingRegNum, setEditingRegNum] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
-  // 1. Setup default dates on mount (avoid SSR hydration mismatch)
+  // 1. Setup default dates and user roles on mount (avoid SSR hydration mismatch)
   useEffect(() => {
     const today = new Date();
     const endStr = today.toISOString().split("T")[0];
@@ -106,6 +110,14 @@ export default function AdminDashboard() {
     
     setStartDate(startStr);
     setEndDate(endStr);
+
+    const role = localStorage.getItem("user_role") as "admin" | "operator" | null;
+    if (role) {
+      setUserRole(role);
+      if (role === "operator") {
+        setActiveTab("users");
+      }
+    }
   }, []);
 
   // 2. Fetch slots on load and periodically
@@ -134,6 +146,7 @@ export default function AdminDashboard() {
     try {
       const res = await fetch("/api/admin/auth", { method: "DELETE" });
       if (res.ok) {
+        localStorage.removeItem("user_role");
         router.push("/admin/login");
       }
     } catch (err) {
@@ -254,7 +267,7 @@ export default function AdminDashboard() {
     setReportError(null);
 
     try {
-      const res = await fetch(`/api/admin/report?startDate=${startDate}&endDate=${endDate}`);
+      const res = await fetch(`/api/admin/report?startDate=${startDate}&endDate=${endDate}&operator=${selectedOperator}`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -262,6 +275,7 @@ export default function AdminDashboard() {
       }
 
       setReportLogs(data.logs || []);
+      setAvailableOperators(data.operators || []);
     } catch (err: any) {
       setReportError(err.message);
     } finally {
@@ -281,7 +295,8 @@ export default function AdminDashboard() {
       "Seat Number",
       "Check-in Time",
       "Check-out Time",
-      "Study Duration"
+      "Study Duration",
+      "Unlocked By (Operator)"
     ];
 
     const rows = reportLogs.map(log => [
@@ -292,7 +307,8 @@ export default function AdminDashboard() {
       log.slot_number ? `Seat #${log.slot_number}` : "-",
       new Date(log.checkin_time).toLocaleString(),
       log.checkout_time ? new Date(log.checkout_time).toLocaleString() : "Active (In Progress)",
-      calculateDuration(log.checkin_time, log.checkout_time)
+      calculateDuration(log.checkin_time, log.checkout_time),
+      log.operator_username || "System / Auto"
     ]);
 
     const csvContent = [
@@ -491,16 +507,18 @@ export default function AdminDashboard() {
 
       {/* Tabs navigation */}
       <div className="tab-nav">
-        <button 
-          className={`tab-btn ${activeTab === 'visualizer' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('visualizer');
-            setError(null);
-            setSuccess(null);
-          }}
-        >
-          Seat Visualizer
-        </button>
+        {userRole !== "operator" && (
+          <button 
+            className={`tab-btn ${activeTab === 'visualizer' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('visualizer');
+              setError(null);
+              setSuccess(null);
+            }}
+          >
+            Seat Visualizer
+          </button>
+        )}
         <button 
           className={`tab-btn ${activeTab === 'reports' ? 'active' : ''}`}
           onClick={() => {
@@ -934,7 +952,7 @@ export default function AdminDashboard() {
             </div>
           ) : reportLogs.length === 0 ? (
             <div style={{ textAlign: "center", padding: "4rem 0", color: "var(--text-muted)", background: "rgba(0,0,0,0.15)", borderRadius: "20px" }}>
-              No reservation logs found for the selected date range.
+              No reservation logs found for the selected filter.
             </div>
           ) : (
             <div className="report-table-wrapper">
@@ -949,6 +967,7 @@ export default function AdminDashboard() {
                     <th>Check-in</th>
                     <th>Check-out</th>
                     <th>Duration</th>
+                    <th>Unlocked By</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -969,6 +988,9 @@ export default function AdminDashboard() {
                       </td>
                       <td className={!log.checkout_time ? "duration-active" : ""}>
                         {calculateDuration(log.checkin_time, log.checkout_time)}
+                      </td>
+                      <td style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                        {log.operator_username || "-"}
                       </td>
                     </tr>
                   ))}
@@ -1113,14 +1135,16 @@ export default function AdminDashboard() {
                                 >
                                   Edit
                                 </button>
-                                <button
-                                  onClick={() => handleDeleteUser(u.registration_number)}
-                                  className="btn-danger"
-                                  style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto", boxShadow: "none" }}
-                                  disabled={userLoading}
-                                >
-                                  Delete
-                                </button>
+                                {userRole !== "operator" && (
+                                  <button
+                                    onClick={() => handleDeleteUser(u.registration_number)}
+                                    className="btn-danger"
+                                    style={{ padding: "0.3rem 0.8rem", fontSize: "0.85rem", width: "auto", boxShadow: "none" }}
+                                    disabled={userLoading}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>

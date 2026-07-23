@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS attendance_logs (
     slot_number INT NOT NULL,
     checkin_time DATETIME NOT NULL,
     checkout_time DATETIME NULL,
+    operator_username VARCHAR(50) NULL,
     FOREIGN KEY (registration_number) REFERENCES users(registration_number)
 );
 

@@ -13,6 +13,12 @@ export async function POST() {
       maxAge: 0,
     });
 
+    // Clear the terminal operator cookie
+    response.cookies.set('terminal_operator', '', {
+      path: '/',
+      maxAge: 0,
+    });
+
     return response;
   } catch (error: any) {
     console.error('Terminal lock API error:', error);
